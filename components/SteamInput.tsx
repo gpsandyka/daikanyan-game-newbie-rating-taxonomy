@@ -16,9 +16,15 @@ interface Props {
   onResult: (data: ClassificationResult) => void;
   onLoading: (loading: boolean) => void;
   onError: (message: string) => void;
+  onDropdownOpenChange?: (open: boolean) => void;
 }
 
-export default function SteamInput({ onResult, onLoading, onError }: Props) {
+export default function SteamInput({
+  onResult,
+  onLoading,
+  onError,
+  onDropdownOpenChange, // ✅ add this
+}: Props) {
   const [value, setValue] = useState<string>("");
 
   // 🔹 Search states
@@ -78,6 +84,10 @@ export default function SteamInput({ onResult, onLoading, onError }: Props) {
 
     searchGames();
   }, [debouncedValue, value]);
+
+  useEffect(() => {
+    onDropdownOpenChange?.(results.length > 0);
+  }, [onDropdownOpenChange, results]);
 
   // ----------------------------------
   // 3. Submit logic (dual mode)
@@ -233,7 +243,9 @@ export default function SteamInput({ onResult, onLoading, onError }: Props) {
                 <Image
                   src={game.game_image}
                   alt={game.game_name}
-                  className="w-10 h-10 object-cover rounded"
+                  width={184}
+                  height={69}
+                  className="h-10 w-auto rounded"
                 />
               )}
               <span className="text-sm text-white">{game.game_name}</span>

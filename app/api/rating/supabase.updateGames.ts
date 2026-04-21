@@ -6,10 +6,12 @@ export async function insertGames(
   game_name: string,
   gameLink: string,
   reply: ClassificationResult,
+  thumbnail: string,
 ) {
   const { error } = await supabaseAdmin.from("games").insert({
     canonical_slug: slug,
     game_name: game_name,
+    game_image: thumbnail,
     game_links: [gameLink],
     game_title: reply.game_title,
     classification_accurateness: reply.classification_accurateness,
@@ -64,22 +66,3 @@ export async function getGames(
 
   return data;
 }
-
-// export async function searchGames(query: string) {
-//     const { data } = await supabase
-//       .from("games")
-//       .select("game_name, game_image, canonical_slug")
-//       .ilike("game_name", `%${query}%`)
-//       .limit(3);
-//   };
-
-//   if (data) {
-//     const reply = parsed as {
-//       game_title: string;
-//       classification_accurateness: string;
-//       classification_code: string;
-//       extra_explanation: string;
-//     };
-//     return NextResponse.json(reply);
-//   }
-// }

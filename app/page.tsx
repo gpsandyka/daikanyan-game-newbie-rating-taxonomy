@@ -9,6 +9,7 @@ export default function Home() {
   const [result, setResult] = useState<ClassificationResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
@@ -30,14 +31,15 @@ export default function Home() {
           >
             <SteamInput
               onResult={(data) => {
-                setError(null); // clear error
+                setError(null);
                 setResult(data);
               }}
               onLoading={setLoading}
               onError={(msg) => {
-                setResult(null); // clear result
+                setResult(null);
                 setError(msg);
               }}
+              onDropdownOpenChange={setIsDropdownOpen}
             />
           </div>
         </div>
@@ -52,9 +54,11 @@ export default function Home() {
         {result && !loading && !error && <ResultCard data={result} />}
 
         {/* Footer */}
-        <p className="text-sm text-gray-400 opacity-70">
-          Search game or paste your steam link and continue
-        </p>
+        {!isDropdownOpen && (
+          <p className="text-sm text-gray-400 opacity-70">
+            Search game or paste your steam link and continue
+          </p>
+        )}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { generateSlug } from "@/utils/generateSlug";
 import { getGames, insertGames } from "./supabase.updateGames";
 import { ClassificationResult } from "@/types/classification";
 import { validateSteamUrl } from "@/utils/validateSteamUrl";
+import { getThumbnail } from "./steam.getThumbnail";
 
 // Define the expected shape of the request body to avoid implicit 'any'
 interface ChatRequestBody {
@@ -95,7 +96,9 @@ export async function POST(request: NextRequest) {
     // Step 3: cast safely
     const reply = parsed as ClassificationResult;
 
-    insertGames(slug, game_name, game_link, reply);
+    const thumbnail = await getThumbnail(game_link);
+
+    insertGames(slug, game_name, game_link, reply, thumbnail);
 
     return NextResponse.json(reply);
   } catch (error: unknown) {
