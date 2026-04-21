@@ -1,8 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import { validateSteamUrl } from "../utils/validateSteamUrl";
 import type { ClassificationResult } from "@/types/classification";
+import Image from "next/image";
+
+interface GameSearchResult {
+  game_name: string;
+  game_image: string | null;
+  canonical_slug: string;
+}
 
 interface Props {
   onResult: (data: ClassificationResult) => void;
@@ -11,34 +19,133 @@ interface Props {
 }
 
 export default function SteamInput({ onResult, onLoading, onError }: Props) {
-  //V1 still use link only,
-  //V2 will use game name and search on database
   const [value, setValue] = useState<string>("");
 
+  // 🔹 Search states
+  const [debouncedValue, setDebouncedValue] = useState<string>("");
+  const [results, setResults] = useState<GameSearchResult[]>([]);
+  const [loadingSearch, setLoadingSearch] = useState<boolean>(false);
+  const [selectedGame, setSelectedGame] = useState<GameSearchResult | null>(
+    null,
+  );
+
+  // ----------------------------------
+  // 1. Debounce input
+  // ----------------------------------
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedValue(value);
+    }, 700); // 500–1000ms is optimal
+
+    return () => clearTimeout(timeout);
+  }, [value]);
+
+  // ----------------------------------
+  // 2. Search from Supabase
+  // ----------------------------------
+  useEffect(() => {
+    const searchGames = async () => {
+      // Do not search if input is a valid Steam link
+      const linkCheck = validateSteamUrl(value);
+      if (linkCheck.isValid) {
+        setResults([]);
+        return;
+      }
+
+      // Avoid useless queries
+      if (!debouncedValue || debouncedValue.length < 2) {
+        setResults([]);
+        return;
+      }
+
+      setLoadingSearch(true);
+
+      const { data, error } = await supabase
+        .from("games")
+        .select("game_name, game_image, canonical_slug")
+        .ilike("game_name", `%${debouncedValue}%`)
+        .limit(10);
+
+      if (error) {
+        console.error("Search error:", error.message);
+        setResults([]);
+      } else {
+        setResults(data || []);
+      }
+
+      setLoadingSearch(false);
+    };
+
+    searchGames();
+  }, [debouncedValue, value]);
+
+  // ----------------------------------
+  // 3. Submit logic (dual mode)
+  // ----------------------------------
   const handleSubmit = async (): Promise<void> => {
-    //Handle submit is different with handle click (on dropdown suggestion)
-    // In V2, when the text is non link, just get the top dropdown if any (if not exist, give warning)
-    // And when the text is link, just do normally
-    await processSteamUrl(value);
+    const linkCheck = validateSteamUrl(value);
+
+    // CASE 1: Valid Steam link → normal flow
+    if (linkCheck.isValid) {
+      await processSteamUrl(value);
+      return;
+    }
+
+    // CASE 2: Not a link → must use selected or first result
+    const gameToUse = selectedGame || results[0];
+
+    if (!gameToUse) {
+      onError("Game not found in database. Please use a Steam link instead.");
+      return;
+    }
+
+    try {
+      onLoading(true);
+
+      const { data, error } = await supabase
+        .from("games")
+        .select("*")
+        .eq("canonical_slug", gameToUse.canonical_slug)
+        .single();
+
+      if (error || !data) {
+        throw new Error("Cached data not found.");
+      }
+
+      onResult(data);
+    } catch (err) {
+      console.error(err);
+      onError("Failed to fetch cached result.");
+    } finally {
+      onLoading(false);
+    }
   };
 
+  // ----------------------------------
+  // 4. Keyboard handling
+  // ----------------------------------
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-    //Search on V2 goes here
     if (e.key === "Enter") {
       e.preventDefault();
       handleSubmit();
     }
   };
 
+  // ----------------------------------
+  // 5. Paste validation (unchanged)
+  // ----------------------------------
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>): void => {
     const pasted = e.clipboardData.getData("text");
-    const result = validateSteamUrl(pasted); //Later V2 input can be non-link
+    const result = validateSteamUrl(pasted);
 
     if (!result.isValid) {
       console.warn(result.error);
     }
   };
 
+  // ----------------------------------
+  // 6. Existing API flow (unchanged)
+  // ----------------------------------
   const processSteamUrl = async (input: string): Promise<void> => {
     const result = validateSteamUrl(input);
 
@@ -49,7 +156,7 @@ export default function SteamInput({ onResult, onLoading, onError }: Props) {
 
     try {
       onLoading(true);
-      onError(""); // clear previous error
+      onError("");
 
       const res = await fetch("/api/rating", {
         method: "POST",
@@ -91,17 +198,49 @@ export default function SteamInput({ onResult, onLoading, onError }: Props) {
     }
   };
 
+  // ----------------------------------
+  // 7. UI
+  // ----------------------------------
   return (
-    <div className="w-full max-w-xl px-4">
+    <div className="w-full max-w-xl px-4 relative">
       <input
         type="text"
-        placeholder="Paste Steam game link..."
+        placeholder="Search game or paste Steam link..."
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setSelectedGame(null); // reset selection on typing
+        }}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
         className="w-full border border-gray-300 rounded-full px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-transparent text-white"
       />
+
+      {/* Dropdown */}
+      {results.length > 0 && (
+        <div className="absolute w-full mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+          {results.map((game) => (
+            <div
+              key={game.canonical_slug}
+              onClick={() => {
+                setSelectedGame(game);
+                setValue(game.game_name);
+                setResults([]);
+              }}
+              className="flex items-center gap-3 p-2 hover:bg-gray-700 cursor-pointer"
+            >
+              {game.game_image && (
+                <Image
+                  src={game.game_image}
+                  alt={game.game_name}
+                  className="w-10 h-10 object-cover rounded"
+                />
+              )}
+              <span className="text-sm text-white">{game.game_name}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

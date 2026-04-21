@@ -53,7 +53,7 @@ export default function Home() {
 
         {/* Footer */}
         <p className="text-sm text-gray-400 opacity-70">
-          paste your steam link and continue
+          Search game or paste your steam link and continue
         </p>
       </div>
     </div>
