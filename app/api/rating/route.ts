@@ -4,6 +4,7 @@ import { getSystemInstruction } from "@/utils/getSystemInstruction";
 import { generateSlug } from "@/utils/generateSlug";
 import { getGames, insertGames } from "./supabase.updateGames";
 import { ClassificationResult } from "@/types/classification";
+import { validateSteamUrl } from "@/utils/validateSteamUrl";
 
 // Define the expected shape of the request body to avoid implicit 'any'
 interface ChatRequestBody {
@@ -20,6 +21,13 @@ export async function POST(request: NextRequest) {
     if (!game_name || !game_link) {
       return NextResponse.json(
         { error: "Game name and link are required." },
+        { status: 400 },
+      );
+    }
+
+    if (!validateSteamUrl(game_link).isValid) {
+      return NextResponse.json(
+        { error: "Invalid Steam URL." },
         { status: 400 },
       );
     }
