@@ -6,7 +6,7 @@ export async function insertGames(
   game_name: string,
   gameLink: string,
   reply: ClassificationResult,
-  thumbnail: string,
+  thumbnail: string | null,
 ) {
   const { error } = await supabaseAdmin.from("games").insert({
     canonical_slug: slug,

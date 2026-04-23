@@ -51,13 +51,6 @@ export default function SteamInput({
   // ----------------------------------
   useEffect(() => {
     const searchGames = async () => {
-      // Do not search if input is a valid Steam link
-      const linkCheck = validateSteamUrl(value);
-      if (linkCheck.isValid) {
-        setResults([]);
-        return;
-      }
-
       // Avoid useless queries
       if (!debouncedValue || debouncedValue.length < 2) {
         setResults([]);
@@ -93,7 +86,7 @@ export default function SteamInput({
   // 3. Submit logic (dual mode)
   // ----------------------------------
   const handleSubmit = async (): Promise<void> => {
-    const linkCheck = validateSteamUrl(value);
+    const linkCheck = await validateSteamUrl(value);
 
     // CASE 1: Valid Steam link → normal flow
     if (linkCheck.isValid) {
@@ -142,22 +135,10 @@ export default function SteamInput({
   };
 
   // ----------------------------------
-  // 5. Paste validation (unchanged)
-  // ----------------------------------
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>): void => {
-    const pasted = e.clipboardData.getData("text");
-    const result = validateSteamUrl(pasted);
-
-    if (!result.isValid) {
-      console.warn(result.error);
-    }
-  };
-
-  // ----------------------------------
   // 6. Existing API flow (unchanged)
   // ----------------------------------
   const processSteamUrl = async (input: string): Promise<void> => {
-    const result = validateSteamUrl(input);
+    const result = await validateSteamUrl(input);
 
     if (!result.isValid) {
       onError(result.error);
@@ -222,7 +203,6 @@ export default function SteamInput({
           setSelectedGame(null); // reset selection on typing
         }}
         onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
         className="w-full border border-gray-300 rounded-full px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-transparent text-white"
       />
 
